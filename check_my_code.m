@@ -1,5 +1,5 @@
 function [error_code, file_function, cplx, percentage_comment] = check_my_code(recursive, cplx_thrs, comment_thres, print_file)
-% This will give you the The McCabe complexity of all the `.m` files in a folder. It will also
+% This will give you the The McCabe complexity of all the `.m` files in the current directory. It will also
 % return the complexity of the subfunctions in each file. If it gets above 10 you enter the
 % danger zone. If you are above 15 you might seriously reconsider refactoring those functions.
 %
@@ -34,12 +34,18 @@ function [error_code, file_function, cplx, percentage_comment] = check_my_code(r
 % ### OUPUTS
 %
 % #### error_code
+% an array wth [cplx_error_code comment_error_code] where each value is 0 if there is no file that
+% is too complex or has too few comments and is 1 otherwise
 %
 % #### file_function
+% a n X 2 cell listing of all the function in {i,1} and subfunction in {i,2} tested. If the function is
+% the main function of a file then {i,1} and {i,2} are the same.
 %
-% #### cplx : 1 X 2 ARRAY
+% #### cplx
+% an array with the complexity of each function and subfunction
 %
 % #### percentage_comment
+% an array with the percentage of comment in each file
 %
 % ## IMPLEMENTATION
 %
@@ -66,7 +72,7 @@ if nargin<3 || isempty(comment_thres)
 end
 
 if nargin<4 || isempty(print_file)
-    print_file = true;
+    print_file = false;
 end
 
 % initialize
@@ -77,7 +83,12 @@ file_function = {};
 % look through the folder for any m file that we want to check
 if recursive
     % this will look recursively into all the subfolders
-    m_file_ls = dir(fullfile(pwd, '**', '*.m'));
+    if verLessThan('matlab', '9.2')
+        warning('Your matlab verion is inferior to 2017a so I cannot recursively search subfolders. Sorry.')
+        m_file_ls = dir('*.m');
+    else
+        m_file_ls = dir(fullfile(pwd, '**', '*.m'));
+    end
 else
     % this will look only in the current directory
     m_file_ls = dir('*.m');
@@ -117,7 +128,7 @@ comment_error_code = report_comments(m_file_ls, percentage_comment, comment_thre
 error_code = [cplx_error_code comment_error_code];
 
 if ~any(error_code)
-fprintf(1,'\n                       CONGRATULATIONS: YOUR CODE IS CLEAN                         \n')
+    fprintf(1,'\n                       CONGRATULATIONS: YOUR CODE IS CLEAN                         \n')
 end
 
 fprintf(1,'\n-----------------------------------------------------------------------------------\n')
@@ -172,7 +183,7 @@ else
     % subfunction and the complexity
     for iMsg = 1:numel(msg)
 
-        if contains(msg(iMsg).message, 'McCabe')
+        if ~isempty(strfind(msg(iMsg).message, 'McCabe'))
 
             fprintf('%s\n', msg(iMsg).message)
 
@@ -186,11 +197,11 @@ else
             % store the complexity of this function
             cplx(end+1) = str2double(msg(iMsg).message(idx_2+4:end-1));
 
-        end
+            % in case the file is empty
+            if isnan(cplx(end))
+                cplx(end) = 0;
+            end
 
-        % in case the file is empty
-        if isnan(cplx(end))
-            cplx(end) = 0;
         end
 
     end
